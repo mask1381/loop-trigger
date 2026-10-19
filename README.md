@@ -13,4 +13,4 @@ that a serverless bot webhook turns into a GitHub `workflow_dispatch`.
 Secrets (GitHub Actions): `TG_API_ID`, `TG_API_HASH`, `TG_SESSION_STRING`, `LOOP_CHAT_ID`.
 
     python -m loop_trigger --dry-run
-    python -m tests.test_planner
+    python test_planner.py
