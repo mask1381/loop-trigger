@@ -1,0 +1,9 @@
+{
+  "timezone": "Asia/Tehran",
+  "rebuild_time": "04:30",
+  "horizon_days": 9,
+  "lead_minutes": 3,
+  "tolerance_minutes": 1,
+  "max_scheduled": 95,
+  "triggers": []
+}
