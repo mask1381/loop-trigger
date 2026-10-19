@@ -1,5 +1,6 @@
 {
   "timezone": "Asia/Tehran",
+  "rebuild_command": "/rebuild",
   "rebuild_time": "04:30",
   "horizon_days": 9,
   "lead_minutes": 3,

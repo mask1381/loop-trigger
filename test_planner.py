@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from loop_trigger.planner import desired_items, diff, parse_key, render
+from loop_trigger.planner import desired_items, diff, norm_command, parse_key, render
 
 TZ = ZoneInfo("Asia/Tehran")
-CONF = {"timezone": "Asia/Tehran", "rebuild_time": "04:30", "horizon_days": 9,
+CONF = {"timezone": "Asia/Tehran", "rebuild_command": "/rebuild", "rebuild_time": "04:30", "horizon_days": 9,
         "lead_minutes": 3, "tolerance_minutes": 1, "max_scheduled": 95, "triggers": []}
 TOL = timedelta(minutes=1)
 
@@ -20,7 +20,7 @@ class Q:
 
 
 def step(q, conf, now):
-    d, a, r = diff(q.msgs, desired_items(conf, now), TOL, conf["max_scheduled"])
+    d, a, r = diff(q.msgs, desired_items(conf, now), TOL, conf["max_scheduled"], conf["rebuild_command"])
     q.apply(d, a)
     return d, a, r
 
@@ -30,9 +30,14 @@ def fire(q, now):
 
 
 def test_parse_and_render():
-    assert parse_key(render("rebuild")) == "rebuild"
-    assert parse_key(render("t:waifu-lab:plan")) == "t:waifu-lab:plan"
-    assert parse_key("hello") is None
+    assert render("/rebuild") == "/rebuild"
+    assert parse_key("/Rebuild") == "/rebuild"
+    assert parse_key("hello") is None and parse_key("/a b") is None and parse_key("my note") is None
+    assert norm_command("wl") == "/wl"
+    try:
+        norm_command("/bad word"); assert False
+    except ValueError:
+        pass
 
 
 def test_fresh_fill_then_idempotent():
@@ -47,7 +52,7 @@ def test_one_rebuild_per_day_forever():
     q, now = Q(), datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
     for _ in range(40):
         step(q, CONF, now)
-        days = {m["date"].astimezone(TZ).date() for m in q.msgs if parse_key(m["text"]) == "rebuild"}
+        days = {m["date"].astimezone(TZ).date() for m in q.msgs if parse_key(m["text"]) == "/rebuild"}
         assert len(days) == 9 and len(q.msgs) == 9
         now += timedelta(days=1)
         fire(q, now)
@@ -59,9 +64,9 @@ def test_survives_missed_rebuilds():
     for _ in range(8):
         now += timedelta(days=1)
         fire(q, now)
-    assert any(parse_key(m["text"]) == "rebuild" for m in q.msgs)
+    assert any(parse_key(m["text"]) == "/rebuild" for m in q.msgs)
     step(q, CONF, now)
-    assert sum(parse_key(m["text"]) == "rebuild" for m in q.msgs) == 9
+    assert sum(parse_key(m["text"]) == "/rebuild" for m in q.msgs) == 9
 
 
 def test_heals_missing_and_duplicates():
@@ -76,9 +81,9 @@ def test_heals_missing_and_duplicates():
 
 def test_triggers_added_moved_removed_and_foreign_ignored():
     q, now = Q(), datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
-    conf = {**CONF, "triggers": [{"time": "10:00", "target": "waifu-lab", "mode": "plan"}]}
+    conf = {**CONF, "triggers": [{"time": "10:00", "command": "/wl"}]}
     step(q, conf, now)
-    assert sum(parse_key(m["text"]) == "t:waifu-lab:plan" for m in q.msgs) == 10
+    assert sum(parse_key(m["text"]) == "/wl" for m in q.msgs) == 10
     q.msgs.append({"id": 5000, "date": now.astimezone(timezone.utc) + timedelta(days=1), "text": "my own note"})
     conf["triggers"][0]["time"] = "11:00"
     d, a, _ = step(q, conf, now)
@@ -89,7 +94,7 @@ def test_triggers_added_moved_removed_and_foreign_ignored():
 
 
 def test_cap_respected():
-    conf = {**CONF, "triggers": [{"time": f"{h:02d}:00", "target": "x", "mode": "m"} for h in range(5, 14)]}
+    conf = {**CONF, "triggers": [{"time": f"{h:02d}:00", "command": f"/c{h}"} for h in range(5, 14)]}
     q = Q(); step(q, conf, datetime(2026, 10, 18, 4, 31, tzinfo=TZ))
     assert len(q.msgs) <= 95
 

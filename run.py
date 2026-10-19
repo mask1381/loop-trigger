@@ -9,7 +9,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from loop_trigger.planner import desired_items, diff, render
+from loop_trigger.planner import desired_items, diff, norm_command, render
 
 log = logging.getLogger("loop_trigger")
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,7 +56,9 @@ async def sync(conf: dict, dry: bool) -> int:
         now = datetime.now(timezone.utc)
         want = desired_items(conf, now)
         tol = timedelta(minutes=int(conf["tolerance_minutes"]))
-        delete_ids, add, reserve = diff(existing, want, tol, int(conf["max_scheduled"]))
+        delete_ids, add, reserve = diff(
+            existing, want, tol, int(conf["max_scheduled"]), norm_command(conf.get("rebuild_command", "/rebuild"))
+        )
         log.info("queue=%s desired=%s delete=%s add=%s reserve_days=%s",
                  len(existing), len(want), len(delete_ids), len(add), reserve)
 
