@@ -1,0 +1,32 @@
+name: Loop
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only log what would change"
+        type: boolean
+        default: false
+
+concurrency:
+  group: loop
+  cancel-in-progress: false
+
+jobs:
+  refill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Refill queue
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          TG_SESSION_STRING: ${{ secrets.TG_SESSION_STRING }}
+          LOOP_CHAT_ID: ${{ secrets.LOOP_CHAT_ID }}
+          DRY_RUN: ${{ github.event.inputs.dry_run == 'true' && 'true' || 'false' }}
+        run: python -m loop_trigger
