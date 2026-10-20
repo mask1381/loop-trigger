@@ -5,7 +5,8 @@ from loop_trigger.planner import desired_items, diff, norm_command, parse_key, r
 
 TZ = ZoneInfo("Asia/Tehran")
 CONF = {"timezone": "Asia/Tehran", "rebuild_command": "/rebuild", "rebuild_time": "04:30", "horizon_days": 9,
-        "lead_minutes": 3, "tolerance_minutes": 1, "max_scheduled": 95, "triggers": []}
+        "lead_minutes": 3, "tolerance_minutes": 1, "max_scheduled": 95, "triggers": [],
+        "reserved_commands": ["start", "help", "cancel", "setsecret", "id", "panel"]}
 TOL = timedelta(minutes=1)
 
 
@@ -91,6 +92,16 @@ def test_triggers_added_moved_removed_and_foreign_ignored():
     conf["triggers"] = []
     d, a, _ = step(q, conf, now)
     assert len(d) == 10 and not a
+
+
+def test_reserved_trigger_rejected():
+    now = datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
+    for bad in ("/id", "/start", "help"):
+        try:
+            desired_items({**CONF, "triggers": [{"time": "10:00", "command": bad}]}, now)
+            assert False, bad
+        except ValueError:
+            pass
 
 
 def test_cap_respected():

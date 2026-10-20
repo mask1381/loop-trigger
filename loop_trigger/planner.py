@@ -48,15 +48,35 @@ def _hhmm(s: str) -> tuple[int, int]:
     return int(h), int(m)
 
 
+# نام‌هایی که بات آن‌ها را دستور داخلی خودش می‌گیرد و هرگز به workflow نمی‌رسد.
+# منبع اصلی، کلید reserved_commands در config/loop.json است؛ این فقط fallback است.
+RESERVED_FALLBACK = frozenset({"start", "help", "cancel", "setsecret", "id", "panel"})
+
+
+def reserved_names(conf: dict) -> set[str]:
+    names = conf.get("reserved_commands")
+    if not isinstance(names, list) or not names:
+        names = RESERVED_FALLBACK
+    return {str(n).strip().lstrip("/").lower() for n in names}
+
+
 def desired_items(conf: dict, now: datetime) -> list[Item]:
     """One rebuild command per day + the configured triggers, from today through today+horizon_days,
     only slots still in the future, sorted by time."""
     tz = ZoneInfo(conf["timezone"])
     now = now.astimezone(tz)
     start = now + timedelta(minutes=int(conf["lead_minutes"]))
-    slots: list[tuple[str, str]] = [(norm_command(conf.get("rebuild_command", "/rebuild")), conf["rebuild_time"])]
-    for t in conf.get("triggers") or []:
-        slots.append((norm_command(t["command"]), t["time"]))
+    reserved = reserved_names(conf)
+
+    def slot(cmd: str, hhmm: str, label: str) -> tuple[str, str]:
+        key = norm_command(cmd)
+        if key.lstrip("/") in reserved:
+            raise ValueError(f"{label}: {key} is reserved by the bot and would never dispatch")
+        return key, hhmm
+
+    slots: list[tuple[str, str]] = [slot(conf.get("rebuild_command", "/rebuild"), conf["rebuild_time"], "rebuild")]
+    for i, t in enumerate(conf.get("triggers") or []):
+        slots.append(slot(t["command"], t["time"], f"triggers[{i}]"))
 
     out: list[Item] = []
     for day in range(int(conf["horizon_days"]) + 1):

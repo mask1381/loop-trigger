@@ -7,6 +7,14 @@ on:
         description: "Only log what would change"
         type: boolean
         default: false
+  # پشتیبان مستقل از تلگرام: اگر پیام‌های زمان‌بندی یا خود بات از کار بیفتند،
+  # صف هر روز ساعت ۰۰:۳۰ UTC (۰۴:۰۰ تهران، نیم ساعت قبل از rebuild) پر می‌شود.
+  # cron گیت‌هاب همیشه UTC است.
+  schedule:
+    - cron: "30 0 * * *"
+
+permissions:
+  contents: write   # برای کامیت آینه‌ی صف و heartbeat
 
 concurrency:
   group: loop
@@ -30,3 +38,23 @@ jobs:
           LOOP_CHAT_ID: ${{ secrets.LOOP_CHAT_ID }}
           DRY_RUN: ${{ github.event.inputs.dry_run == 'true' && 'true' || 'false' }}
         run: python -m loop_trigger
+
+      # آینه‌ی صف (state/queue.json) را برای بات منتشر می‌کند و با heartbeat روزانه،
+      # تایمر «۶۰ روز بی‌فعالیتی» گیت‌هاب را صفر نگه می‌دارد تا cron خاموش نشود.
+      - name: Publish queue mirror + heartbeat
+        # فقط از شاخه‌ی اصلی، چون بات state/queue.json را از main می‌خواند
+        if: always() && github.ref == 'refs/heads/main'
+        run: |
+          set -e
+          mkdir -p state
+          printf '{"heartbeat_utc":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > state/heartbeat.json
+          git config user.name  "loop-trigger[bot]"
+          git config user.email "loop-trigger@users.noreply.github.com"
+          git add state/heartbeat.json
+          if [ -f state/queue.json ]; then git add state/queue.json; fi
+          if git diff --cached --quiet; then
+            echo "nothing to publish"
+          else
+            git commit -m "state: queue mirror $(date -u +%FT%TZ)"
+            git push
+          fi

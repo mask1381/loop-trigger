@@ -6,5 +6,13 @@
   "lead_minutes": 3,
   "tolerance_minutes": 1,
   "max_scheduled": 95,
-  "triggers": []
+  "triggers": [],
+  "reserved_commands": [
+    "start",
+    "help",
+    "cancel",
+    "setsecret",
+    "id",
+    "panel"
+  ]
 }
