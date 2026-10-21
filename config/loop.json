@@ -9,10 +9,10 @@
   "triggers": [
     { "time": "00:05", "command": "/run_b" },
     { "time": "00:10", "command": "/run_c" },
-    { "time": "14:30", "command": "/run_d" },
-    { "time": "20:30", "command": "/run_d" },
-    { "time": "02:30", "command": "/run_d" },
-    { "time": "08:30", "command": "/run_d" },
+    { "time": "14:30", "command": "/run_a" },
+    { "time": "20:30", "command": "/run_a" },
+    { "time": "02:30", "command": "/run_a" },
+    { "time": "08:30", "command": "/run_a" },
     { "time": "12:10", "command": "/run_c" }
   ],
   "reserved_commands": [
