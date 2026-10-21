@@ -6,13 +6,22 @@
   "lead_minutes": 3,
   "tolerance_minutes": 1,
   "max_scheduled": 95,
-  "triggers": [],
+  "triggers": [
+    { "time": "00:05", "command": "/run_b" },
+    { "time": "00:10", "command": "/run_c" },
+    { "time": "14:30", "command": "/run_d" },
+    { "time": "20:30", "command": "/run_d" },
+    { "time": "02:30", "command": "/run_d" },
+    { "time": "08:30", "command": "/run_d" },
+    { "time": "12:10", "command": "/run_c" }
+  ],
   "reserved_commands": [
     "start",
     "help",
     "cancel",
     "setsecret",
     "id",
-    "panel"
+    "panel",
+    "ack"
   ]
 }
