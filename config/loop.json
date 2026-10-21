@@ -7,7 +7,7 @@
   "tolerance_minutes": 1,
   "max_scheduled": 95,
   "triggers": [
-    { "time": "00:05", "command": "/run_b" },
+    { "time": "23:05", "command": "/run_b" },
     { "time": "00:10", "command": "/run_c" },
     { "time": "14:30", "command": "/run_a" },
     { "time": "20:30", "command": "/run_a" },
