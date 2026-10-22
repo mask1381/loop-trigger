@@ -7,13 +7,15 @@
   "tolerance_minutes": 1,
   "max_scheduled": 95,
   "triggers": [
-    { "time": "23:05", "command": "/run_b" },
-    { "time": "00:10", "command": "/run_c" },
-    { "time": "14:30", "command": "/run_a" },
-    { "time": "20:30", "command": "/run_a" },
-    { "time": "02:30", "command": "/run_a" },
-    { "time": "08:30", "command": "/run_a" },
-    { "time": "12:10", "command": "/run_c" }
+    { "time": "23:00", "command": "/run_b" },
+    { "time": "22:00", "command": "/run_gv" },
+    { "time": "21:00", "command": "/run_wl" },
+    { "time": "00:00", "command": "/run_c" },
+    { "time": "14:00", "command": "/run_a" },
+    { "time": "20:00", "command": "/run_a" },
+    { "time": "02:00", "command": "/run_a" },
+    { "time": "08:00", "command": "/run_a" },
+    { "time": "12:00", "command": "/run_c" }
   ],
   "reserved_commands": [
     "start",
