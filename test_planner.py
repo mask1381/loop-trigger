@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from loop_trigger.planner import desired_items, diff, norm_command, parse_key, render
+from loop_trigger.planner import desired_followups, desired_items, diff, norm_command, parse_key, render
 
 TZ = ZoneInfo("Asia/Tehran")
 CONF = {"timezone": "Asia/Tehran", "rebuild_command": "/rebuild", "rebuild_time": "04:30", "horizon_days": 9,
@@ -108,6 +108,52 @@ def test_cap_respected():
     conf = {**CONF, "triggers": [{"time": f"{h:02d}:00", "command": f"/c{h}"} for h in range(5, 14)]}
     q = Q(); step(q, conf, datetime(2026, 10, 18, 4, 31, tzinfo=TZ))
     assert len(q.msgs) <= 95
+
+
+# ───────── follow-up (/collect در چت دوم) ─────────
+FU_CONF = {**CONF, "triggers": [{"time": "10:00", "command": "/wl"}],
+           "follow_up": {"command": "/collect", "delay_minutes": 55}}
+
+
+def test_followup_after_every_main_message():
+    now = datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
+    main = desired_items(FU_CONF, now)
+    fu = desired_followups(FU_CONF, now)
+    got = {i.when for i in fu}
+    assert {i.when + timedelta(minutes=55) for i in main} <= got
+    assert all(i.key == "/collect" for i in fu)
+    # rebuild 04:30 already fired 1 min ago, but its follow-up (05:25) is still ahead
+    assert datetime(2026, 10, 18, 5, 25, tzinfo=TZ).astimezone(timezone.utc) in got
+
+
+def test_followup_exclude_and_same_minute_dedupe():
+    now = datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
+    conf = {**FU_CONF, "follow_up": {"delay_minutes": 55, "exclude": ["/rebuild"]}}
+    fu = {i.when for i in desired_followups(conf, now)}
+    assert datetime(2026, 10, 18, 5, 25, tzinfo=TZ).astimezone(timezone.utc) not in fu
+    twin = {**FU_CONF, "triggers": [{"time": "10:00", "command": "/a"}, {"time": "10:00", "command": "/b"}]}
+    whens = [i.when for i in desired_followups(twin, now)]
+    assert len(whens) == len(set(whens))
+
+
+def test_followup_queue_steady_state_no_churn():
+    q, now = Q(), datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
+    for _ in range(20):
+        d, a, _ = diff(q.msgs, desired_followups(FU_CONF, now), TOL, 95, "/rebuild")
+        assert not d, d
+        q.apply(d, a)
+        d2, a2, _ = diff(q.msgs, desired_followups(FU_CONF, now), TOL, 95, "/rebuild")
+        assert not d2 and not a2          # idempotent
+        now += timedelta(days=1)
+        fire(q, now)
+    assert len(q.msgs) <= 95
+
+
+def test_followup_real_config_fits_cap():
+    import json, pathlib
+    conf = json.loads((pathlib.Path(__file__).parent / "config" / "loop.json").read_text(encoding="utf-8"))
+    n = len(desired_followups(conf, datetime(2026, 10, 18, 4, 31, tzinfo=TZ)))
+    assert 0 < n <= conf["max_scheduled"], n
 
 
 if __name__ == "__main__":
