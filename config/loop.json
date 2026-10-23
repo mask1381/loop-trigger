@@ -6,6 +6,11 @@
   "lead_minutes": 3,
   "tolerance_minutes": 1,
   "max_scheduled": 95,
+  "follow_up": {
+    "command": "/collect",
+    "delay_minutes": 55,
+    "exclude": []
+  },
   "triggers": [
     { "time": "23:00", "command": "/run_b" },
     { "time": "22:00", "command": "/run_gv" },
