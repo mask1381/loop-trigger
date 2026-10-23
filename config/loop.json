@@ -9,7 +9,7 @@
   "triggers": [
     { "time": "23:00", "command": "/run_b" },
     { "time": "22:00", "command": "/run_gv" },
-    { "time": "21:00", "command": "/run_wl" },
+    { "time": "21:00", "command": "/run_w" },
     { "time": "00:00", "command": "/run_c" },
     { "time": "14:00", "command": "/run_a" },
     { "time": "20:00", "command": "/run_a" },
