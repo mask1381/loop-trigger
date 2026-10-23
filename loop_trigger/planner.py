@@ -6,6 +6,8 @@ A trigger message is exactly one command: "/word" (nothing else). You define the
 config/loop.json; the serverless worker maps each word to an action.
     rebuild_command  -> the daily message that re-runs this repo (default "/rebuild")
     triggers[]       -> {"time": "10:00", "command": "/yourword"}
+    follow_up        -> for EVERY message above, one more command (default "/collect") is
+                        scheduled `delay_minutes` later in a SECOND chat (COLLECT_CHAT_ID)
 """
 
 import re
@@ -86,6 +88,37 @@ def desired_items(conf: dict, now: datetime) -> list[Item]:
             dt = datetime(d.year, d.month, d.day, h, m, tzinfo=tz)
             if dt >= start:
                 out.append(Item(dt.astimezone(timezone.utc), key))
+    out.sort(key=lambda i: i.when)
+    return out
+
+
+def desired_followups(conf: dict, now: datetime) -> list[Item]:
+    """The second chat's queue: one follow-up command (default "/collect") `delay_minutes`
+    after EVERY message of the main queue (rebuild included, unless listed in follow_up.exclude).
+
+    The main messages are computed from (now - delay), not from now: a message that fired 20
+    minutes ago has already left the main queue, but its follow-up is still in the future and
+    must not be missed (or deleted by the next diff).
+    """
+    fu = conf.get("follow_up") or {}
+    delay_min = int(fu.get("delay_minutes", 55))
+    if delay_min <= 0:
+        raise ValueError("follow_up.delay_minutes must be positive")
+    delay = timedelta(minutes=delay_min)
+    command = norm_command(fu.get("command", "/collect"))
+    exclude = {norm_command(c) for c in (fu.get("exclude") or [])}
+
+    start = now + timedelta(minutes=int(conf["lead_minutes"]))
+    out: list[Item] = []
+    seen: set[datetime] = set()
+    for it in desired_items(conf, now - delay):
+        if it.key in exclude:
+            continue
+        when = it.when + delay
+        if when < start or when in seen:   # two messages at the same minute -> one follow-up
+            continue
+        seen.add(when)
+        out.append(Item(when, command))
     out.sort(key=lambda i: i.when)
     return out
 
