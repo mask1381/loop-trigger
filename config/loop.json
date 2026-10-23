@@ -12,15 +12,16 @@
     "exclude": []
   },
   "triggers": [
-    { "time": "23:00", "command": "/run_b" },
-    { "time": "22:00", "command": "/run_gv" },
-    { "time": "21:00", "command": "/run_w" },
-    { "time": "00:00", "command": "/run_c" },
     { "time": "14:00", "command": "/run_a" },
     { "time": "20:00", "command": "/run_a" },
     { "time": "02:00", "command": "/run_a" },
     { "time": "08:00", "command": "/run_a" },
-    { "time": "12:00", "command": "/run_c" }
+    { "time": "00:00", "command": "/run_b" },
+    { "time": "23:00", "command": "/run_c" },
+    { "time": "11:00", "command": "/run_c" },
+    { "time": "03:00", "command": "/run_gv" },
+    { "time": "06:00", "command": "/run_w" },
+    { "time": "09:00", "command": "/run_aw" }
   ],
   "reserved_commands": [
     "start",
