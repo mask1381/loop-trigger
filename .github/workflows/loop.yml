@@ -36,6 +36,7 @@ jobs:
           TG_API_HASH: ${{ secrets.TG_API_HASH }}
           TG_SESSION_STRING: ${{ secrets.TG_SESSION_STRING }}
           LOOP_CHAT_ID: ${{ secrets.LOOP_CHAT_ID }}
+          COLLECT_CHAT_ID: ${{ secrets.COLLECT_CHAT_ID }}
           DRY_RUN: ${{ github.event.inputs.dry_run == 'true' && 'true' || 'false' }}
         run: python -m loop_trigger
 
@@ -52,6 +53,7 @@ jobs:
           git config user.email "loop-trigger@users.noreply.github.com"
           git add state/heartbeat.json
           if [ -f state/queue.json ]; then git add state/queue.json; fi
+          if [ -f state/queue_collect.json ]; then git add state/queue_collect.json; fi
           if git diff --cached --quiet; then
             echo "nothing to publish"
           else
