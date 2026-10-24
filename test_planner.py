@@ -112,41 +112,81 @@ def test_cap_respected():
 
 # ───────── follow-up (/collect در چت دوم) ─────────
 FU_CONF = {**CONF, "triggers": [{"time": "10:00", "command": "/wl"}],
-           "follow_up": {"command": "/collect", "delay_minutes": 55}}
+           "follow_up": {"command": "/collect", "delays_minutes": [30, 55]}}
 
 
-def test_followup_after_every_main_message():
+def test_followup_two_per_main_message():
     now = datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
     main = desired_items(FU_CONF, now)
     fu = desired_followups(FU_CONF, now)
     got = {i.when for i in fu}
-    assert {i.when + timedelta(minutes=55) for i in main} <= got
+    for d in (30, 55):
+        assert {i.when + timedelta(minutes=d) for i in main} <= got
     assert all(i.key == "/collect" for i in fu)
-    # rebuild 04:30 already fired 1 min ago, but its follow-up (05:25) is still ahead
-    assert datetime(2026, 10, 18, 5, 25, tzinfo=TZ).astimezone(timezone.utc) in got
+    # rebuild 04:30 already fired 1 min ago, but both follow-ups (05:00, 05:25) are still ahead
+    for hhmm in ((5, 0), (5, 25)):
+        assert datetime(2026, 10, 18, *hhmm, tzinfo=TZ).astimezone(timezone.utc) in got
+
+
+def test_followup_legacy_single_delay_still_works():
+    now = datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
+    conf = {**FU_CONF, "follow_up": {"command": "/collect", "delay_minutes": 55}}
+    main = desired_items(conf, now)
+    got = {i.when for i in desired_followups(conf, now)}
+    assert {i.when + timedelta(minutes=55) for i in main} <= got
+    assert datetime(2026, 10, 18, 5, 0, tzinfo=TZ).astimezone(timezone.utc) not in got
 
 
 def test_followup_exclude_and_same_minute_dedupe():
     now = datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
-    conf = {**FU_CONF, "follow_up": {"delay_minutes": 55, "exclude": ["/rebuild"]}}
+    conf = {**FU_CONF, "follow_up": {"delays_minutes": [30, 55], "exclude": ["/rebuild"]}}
     fu = {i.when for i in desired_followups(conf, now)}
-    assert datetime(2026, 10, 18, 5, 25, tzinfo=TZ).astimezone(timezone.utc) not in fu
+    for hhmm in ((5, 0), (5, 25)):
+        assert datetime(2026, 10, 18, *hhmm, tzinfo=TZ).astimezone(timezone.utc) not in fu
     twin = {**FU_CONF, "triggers": [{"time": "10:00", "command": "/a"}, {"time": "10:00", "command": "/b"}]}
     whens = [i.when for i in desired_followups(twin, now)]
     assert len(whens) == len(set(whens))
+
+
+def test_followup_truncated_to_cap_earliest_first():
+    now = datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
+    conf = {**FU_CONF, "follow_up": {**FU_CONF["follow_up"], "max_scheduled": 10}}
+    fu = desired_followups(conf, now)
+    full = desired_followups({**conf, "follow_up": {**conf["follow_up"], "max_scheduled": 95}}, now)
+    assert len(fu) == 10 and [i.when for i in fu] == [i.when for i in full][:10]
+
+
+def test_followup_full_old_queue_gets_near_slots():
+    """صف پر از /collect های قدیمی (+55) نباید جلوی اضافه شدن +30 های نزدیک را بگیرد."""
+    now = datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
+    old = {**FU_CONF, "follow_up": {"command": "/collect", "delay_minutes": 55}}
+    q = Q()
+    d, a, _ = diff(q.msgs, desired_followups(old, now), TOL, 95, "/rebuild")
+    q.apply(d, a)
+    d, a, _ = diff(q.msgs, desired_followups(FU_CONF, now), TOL, 95, "/rebuild")
+    q.apply(d, a)
+    assert len(q.msgs) <= 95
+    whens = {m["date"] for m in q.msgs}
+    assert datetime(2026, 10, 18, 5, 0, tzinfo=TZ).astimezone(timezone.utc) in whens
 
 
 def test_followup_queue_steady_state_no_churn():
     q, now = Q(), datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
     for _ in range(20):
         d, a, _ = diff(q.msgs, desired_followups(FU_CONF, now), TOL, 95, "/rebuild")
-        assert not d, d
         q.apply(d, a)
         d2, a2, _ = diff(q.msgs, desired_followups(FU_CONF, now), TOL, 95, "/rebuild")
         assert not d2 and not a2          # idempotent
         now += timedelta(days=1)
         fire(q, now)
     assert len(q.msgs) <= 95
+
+
+def test_followup_real_config_fits_cap():
+    import json, pathlib
+    conf = json.loads((pathlib.Path(__file__).parent / "config" / "loop.json").read_text(encoding="utf-8"))
+    n = len(desired_followups(conf, datetime(2026, 10, 18, 4, 31, tzinfo=TZ)))
+    assert 0 < n <= conf["max_scheduled"], n
 
 
 def test_followup_real_config_fits_cap():
