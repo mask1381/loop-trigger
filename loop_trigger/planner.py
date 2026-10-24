@@ -92,35 +92,49 @@ def desired_items(conf: dict, now: datetime) -> list[Item]:
     return out
 
 
-def desired_followups(conf: dict, now: datetime) -> list[Item]:
-    """The second chat's queue: one follow-up command (default "/collect") `delay_minutes`
-    after EVERY message of the main queue (rebuild included, unless listed in follow_up.exclude).
+def followup_delays(fu: dict) -> list[int]:
+    """delays_minutes (list) یا کلید قدیمی delay_minutes (عدد) → لیست مرتب و یکتا."""
+    raw = fu.get("delays_minutes")
+    if raw is None:
+        raw = [fu.get("delay_minutes", 55)]
+    delays = sorted({int(x) for x in raw})
+    if not delays or delays[0] <= 0:
+        raise ValueError("follow_up.delays_minutes must be a non-empty list of positive integers")
+    return delays
 
-    The main messages are computed from (now - delay), not from now: a message that fired 20
-    minutes ago has already left the main queue, but its follow-up is still in the future and
+
+def desired_followups(conf: dict, now: datetime) -> list[Item]:
+    """The second chat's queue: for EVERY message of the main queue (rebuild included, unless listed
+    in follow_up.exclude), one follow-up command (default "/collect") per delay in follow_up.delays_minutes.
+
+    The main messages are computed from (now - max_delay), not from now: a message that fired 40
+    minutes ago has already left the main queue, but its +55 follow-up is still in the future and
     must not be missed (or deleted by the next diff).
+
+    The result is truncated to the cap (earliest first), so diff() deletes the far-future
+    follow-ups when the queue is full and the near ones can always be added.
     """
     fu = conf.get("follow_up") or {}
-    delay_min = int(fu.get("delay_minutes", 55))
-    if delay_min <= 0:
-        raise ValueError("follow_up.delay_minutes must be positive")
-    delay = timedelta(minutes=delay_min)
+    delays = [timedelta(minutes=m) for m in followup_delays(fu)]
+    max_delay = delays[-1]
     command = norm_command(fu.get("command", "/collect"))
     exclude = {norm_command(c) for c in (fu.get("exclude") or [])}
+    cap = int(fu.get("max_scheduled", conf["max_scheduled"]))
 
     start = now + timedelta(minutes=int(conf["lead_minutes"]))
     out: list[Item] = []
     seen: set[datetime] = set()
-    for it in desired_items(conf, now - delay):
+    for it in desired_items(conf, now - max_delay):
         if it.key in exclude:
             continue
-        when = it.when + delay
-        if when < start or when in seen:   # two messages at the same minute -> one follow-up
-            continue
-        seen.add(when)
-        out.append(Item(when, command))
+        for delay in delays:
+            when = it.when + delay
+            if when < start or when in seen:   # same minute -> one follow-up
+                continue
+            seen.add(when)
+            out.append(Item(when, command))
     out.sort(key=lambda i: i.when)
-    return out
+    return out[:cap]
 
 
 def diff(existing: list[dict], desired: list[Item], tol: timedelta, cap: int, rebuild_key: str = "/rebuild"):
