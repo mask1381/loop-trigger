@@ -8,7 +8,7 @@
   "max_scheduled": 95,
   "follow_up": {
     "command": "/collect",
-    "delay_minutes": 55,
+    "delays_minutes": [30, 55],
     "exclude": []
   },
   "triggers": [
