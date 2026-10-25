@@ -8,7 +8,8 @@
   "max_scheduled": 95,
   "follow_up": {
     "command": "/collect",
-    "delays_minutes": [30, 55],
+    "delays_minutes": [15, 30, 45, 55],
+    "only": ["/run_a", "/run_b", "/run_c"],
     "exclude": []
   },
   "triggers": [
