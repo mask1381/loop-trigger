@@ -119,13 +119,14 @@ def desired_followups(conf: dict, now: datetime) -> list[Item]:
     max_delay = delays[-1]
     command = norm_command(fu.get("command", "/collect"))
     exclude = {norm_command(c) for c in (fu.get("exclude") or [])}
+    only = {norm_command(c) for c in (fu.get("only") or [])}
     cap = int(fu.get("max_scheduled", conf["max_scheduled"]))
 
     start = now + timedelta(minutes=int(conf["lead_minutes"]))
     out: list[Item] = []
     seen: set[datetime] = set()
     for it in desired_items(conf, now - max_delay):
-        if it.key in exclude:
+        if it.key in exclude or (only and it.key not in only):
             continue
         for delay in delays:
             when = it.when + delay
