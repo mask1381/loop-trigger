@@ -194,7 +194,14 @@ def test_followup_real_config_fits_cap():
     conf = json.loads((pathlib.Path(__file__).parent / "config" / "loop.json").read_text(encoding="utf-8"))
     n = len(desired_followups(conf, datetime(2026, 10, 18, 4, 31, tzinfo=TZ)))
     assert 0 < n <= conf["max_scheduled"], n
-
+def test_followup_only_filters_sources():
+    now = datetime(2026, 10, 18, 4, 31, tzinfo=TZ)
+    conf = {**FU_CONF, "follow_up": {"delays_minutes": [15, 30, 45, 55], "only": ["/wl"]}}
+    fu = {i.when for i in desired_followups(conf, now)}
+    wl = [i for i in desired_items(conf, now) if i.key == "/wl"]
+    assert {i.when + timedelta(minutes=d) for i in wl for d in (15, 30, 45, 55)} <= fu
+    # rebuild فیلتر شده، پس +۱۵ آن (۰۴:۴۵) نباید باشد
+    assert datetime(2026, 10, 18, 4, 45, tzinfo=TZ).astimezone(timezone.utc) not in fu
 
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
